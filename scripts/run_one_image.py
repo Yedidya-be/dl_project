@@ -1,5 +1,6 @@
-# import utils
+import utils
 import sys
+import os
 
 path = r'/home/labs/danielda/yedidyab/dl_project/raw_data/*nd2'
 temp_files_path = r'/home/labs/danielda/yedidyab/dl_project/temp_files/'
@@ -10,6 +11,7 @@ path = sys.argv[1]
 
 
 def run_image(path):
+
     temp = utils.Img(path, temp_files_path=temp_files_path)
     temp.segment(model=segmentation_model)
     temp.alighnment()
@@ -19,5 +21,4 @@ def run_image(path):
     temp.extract_single_cell_images()
 
 
-# run_image(path)
-print(33, path, 33)
+run_image(path)
