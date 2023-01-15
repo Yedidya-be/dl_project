@@ -1,9 +1,49 @@
 import glob
 import subprocess
 import os
+import pandas as pd
 
 path = r'/home/labs/danielda/yedidyab/dl_project/raw_data/*nd2'
+path = r'/home/labs/danielda/yedidyab/dl_project/raw_data/*nd2'
+
 single_cell_path = r'/home/labs/danielda/yedidyab/dl_project/single_cell_data/'
+
+import os
+import glob
+import pandas as pd
+
+
+def concatenate_csv(path):
+    """
+    This function takes all csv files in directory that have "single" in their name,
+    and concatenates them together into a single csv file.
+    """
+    # use glob to match all CSV files with "single" in their name
+    all_files = glob.glob(path + "/*single*.csv")
+
+    # create an empty list to store the dataframes
+    list_ = []
+
+    # loop through the list of file names
+    for file in all_files:
+        # read the CSV file into a dataframe
+        df = pd.read_csv(file)
+        # add a column to the dataframe with the file name
+        df['image'] = os.path.basename(file)
+        # add the dataframe to the list
+        list_.append(df)
+
+    # concatenate all the dataframes in the list
+    result = pd.concat(list_)
+
+    # get the directory path of the first file in the list
+    output_dir = os.path.dirname(all_files[0])
+    # create the output file path
+    output_file = os.path.join(output_dir, 'concatenated_single_csv.csv')
+
+    # write the concatenated dataframe to a new CSV file
+    result.to_csv(output_file, index=False)
+
 
 for file in glob.iglob(path):
 
@@ -14,4 +54,7 @@ for file in glob.iglob(path):
         to_exec.append(file)
         subprocess.run(to_exec)
 
+#save single_concatenated_csv
+path = r'/home/labs/danielda/yedidyab/dl_project/temp_files/props_df/'
+concatenate_csv(path)
 

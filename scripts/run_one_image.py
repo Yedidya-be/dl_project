@@ -2,7 +2,6 @@ import utils
 import sys
 import os
 
-path = r'/home/labs/danielda/yedidyab/dl_project/raw_data/*nd2'
 temp_files_path = r'/home/labs/danielda/yedidyab/dl_project/temp_files/'
 segmentation_model = r'/home/labs/danielda/yedidyab/dl_project/models/cellpose_100X_model'
 detect_div_model = r'/home/labs/danielda/yedidyab/dl_project/models/rf_detect_div_model_942acc.pkl'
