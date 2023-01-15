@@ -1,5 +1,4 @@
 import copy
-
 import numpy as np
 import napari
 import matplotlib.pyplot as plt
@@ -32,7 +31,8 @@ class Img:
     def __init__(self, path, temp_files_path = r'X:\yedidyab\dl_project\temp_files'):
         self.dev_list = None
         self.path = path
-        self.name = self.path.split('.')[0].split('/')[-1]
+        self.basename = os.path.basename(path)
+        self.name = os.path.splitext(self.basename)[0]
         self.matrix = nd2.imread(self.path)
         self.phase_projection, self.optimal_layer_mat = gt(self.matrix, chunk_size=128 * 2, is_show_proj=False)
         self.dapi = np.max(self.matrix[:, 1, :, :], axis=0)
@@ -42,7 +42,7 @@ class Img:
         self.size = self.dapi.shape[0]
         self.temp_files_path = temp_files_path
 
-    def segment(self, model=r'C:\Users\yedidyab\Documents\zohar_data\111022_Psyringea_growth1\croped\models\100X_model',
+    def segment(self, model=r'X:\yedidyab\dl_project\models\cellpose_100X_model',
                 diameter=0, flow_threshold=0.4, cellprob_threshold=0, load_if_exist=True):
         '''
 
@@ -79,11 +79,15 @@ class Img:
         loader = np.load(save_path + '_seg.npy', allow_pickle=True).item()
         self.masks, self.masks_outlines = loader['masks'], loader['outlines']
 
-    def alighnment(self):
-        self.channels = [align(self.phase_projection, channel) for channel in self.channels[1:]]
+    def alignment(self):
+        self.dapi = align(self.phase_projection,self.dapi)
+        self.ribo = align(self.phase_projection,self.ribo)
+        self.wga = align(self.phase_projection,self.wga)
 
     def reduce_high_signals(self):
-        self.channels = [reduce(channel) for channel in self.channels]
+        self.dapi = reduce(self.dapi)
+        self.ribo = reduce(self.ribo)
+        self.wga = reduce(self.wga)
 
     def show_img(self):
         '''
