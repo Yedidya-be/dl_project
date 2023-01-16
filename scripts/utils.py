@@ -97,6 +97,8 @@ class Img:
         viewer = napari.Viewer()
         viewer.add_image(self.phase_projection)
         viewer.add_image(self.dapi, name='dapi')
+        viewer.add_image(self.ribo, name='ribo')
+        viewer.add_image(self.wga, name='wga')
         viewer.add_labels(self.masks_outlines)
         viewer.show(block=True)  # wait until viewer window closes
 

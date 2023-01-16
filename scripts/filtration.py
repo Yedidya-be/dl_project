@@ -12,7 +12,7 @@ def filter_npy(path, single_cell_dir, th):
     df = pd.read_csv(path)
     # create the output directory
     output_dir = os.path.dirname(path)
-    filtered_dir = os.path.join(output_dir, 'filtered_npy')
+    filtered_dir = os.path.join(output_dir, '../filtered_npy')
     print(filtered_dir)
     if not os.path.exists(filtered_dir):
         os.makedirs(filtered_dir)
