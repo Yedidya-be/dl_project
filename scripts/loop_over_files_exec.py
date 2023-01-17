@@ -3,9 +3,9 @@ import subprocess
 import os
 import pandas as pd
 
-path = r'/home/labs/danielda/dl4cv_project/data/*nd2'
+path = r'/home/labs/danielda/yedidyab/dl_project/raw_data/*nd2'
 
-single_cell_path = r'/home/labs/danielda/dl4cv_project/single_cell_data/'
+single_cell_path = r'/home/labs/danielda/yedidyab/dl_project/single_cell_data/'
 if not os.path.exists(single_cell_path):
     os.makedirs(single_cell_path)
 
@@ -47,11 +47,10 @@ for file in glob.iglob(path):
     if os.path.exists(single_cell_path + file.split('.')[0].split('/')[-1]):
         print(f'{file} already exist')
     else:
-        to_exec = 'bsub -gpu num=1 -q gpu-short -J test1 -eo /home/labs/danielda/dl4cv_project/temp_files/wecax_out_err/errors_%J.txt -oo /home/labs/danielda/dl4cv_project//temp_files/wecax_out_err/output_%J.txt -R rusage[mem=5000] python /home/labs/danielda/yedidyab/dl_project/scripts/run_one_image.py'.split()
+        to_exec = 'bsub -gpu num=1 -q gpu-short -J test1 -eo /home/labs/danielda/yedidyab/dl_project/temp_files/wecax_out_err/errors_%J.txt -oo /home/labs/danielda/yedidyab/dl_project/temp_files/wecax_out_err/output_%J.txt -R rusage[mem=5000] python /home/labs/danielda/yedidyab/dl_project/scripts/run_one_image.py'.split()
         to_exec.append(file)
         subprocess.run(to_exec)
 
 # save single_concatenated_csv
-path = r'/home/labs/danielda/dl4cv_project/temp_files/props_df/'
-
+path = r'/home/labs/danielda/yedidyab/dl_project/temp_files/props_df/'
 concatenate_csv(path)
