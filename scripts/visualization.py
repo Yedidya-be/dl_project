@@ -58,4 +58,33 @@ def plot_matrices():
 
     plt.savefig(r'X:\yedidyab\dl_project\results\figures\data.png')
     plt.show()
-plot_matrices()
+# plot_matrices()
+
+def save_random_crops(img_obj, size=200, num_of_crops = 30):
+    # Load the image and mask
+    img = img_obj.phase_projection
+    mask = img_obj.masks_outlines
+
+    # Get image dimensions
+    height, width = img.shape
+
+    # Create a list to store the crops
+    crops = []
+
+    # Loop to take 10 random crops
+    for i in range(num_of_crops):
+        # Generate random starting x and y coordinates
+        x = random.randint(0, width - size)
+        y = random.randint(0, height - size)
+
+        # Crop the image and mask
+        img_crop = img[y:y + size, x:x + size]
+        mask_crop = mask[y:y + size, x:x + size]
+
+        # Add the crops to the list
+        crops.append((img_crop, mask_crop))
+
+    # Loop to save the crops
+    for i, (img_crop, mask_crop) in enumerate(crops):
+        plt.imsave(rf'X:\yedidyab\dl_project\results\figures\img_crop_{i}.jpg', img_crop, cmap='Greys')
+        plt.imsave(rf'X:\yedidyab\dl_project\results\figures\mask_crop_{i}.jpg', mask_crop)
