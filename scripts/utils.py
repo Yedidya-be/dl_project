@@ -29,7 +29,7 @@ from reduce_high_signals import reduce
 
 class Img:
 
-    def __init__(self, path, temp_files_path = r'X:\yedidyab\dl_project\temp_files'):
+    def __init__(self, path, temp_files_path=r'X:\yedidyab\dl_project\temp_files'):
         self.dev_list = None
         self.path = path
         self.name = os.path.basename(path).split('.')[0]
@@ -39,7 +39,7 @@ class Img:
         self.dapi = np.max(self.matrix[:, 1, :, :], axis=0)
         self.ribo = np.max(self.matrix[:, 4, :, :], axis=0)
         self.wga = np.max(self.matrix[:, 3, :, :], axis=0)
-        self.channels = [self.phase_projection, self.dapi, self.ribo, self.wga]
+        self.channels = [self.dapi, self.ribo, self.wga]
         self.size = self.dapi.shape[0]
         self.temp_files_path = temp_files_path
 
@@ -81,10 +81,12 @@ class Img:
         self.masks, self.masks_outlines = loader['masks'], loader['outlines']
 
     def alighnment(self):
-        self.channels = [align(self.phase_projection, channel) for channel in self.channels[1:]]
+        self.channels = [align(self.phase_projection, channel) for channel in self.channels]
 
     def reduce_high_signals(self):
         self.channels = [reduce(channel) for channel in self.channels]
+        self.dapi, self.ribo, self.wga = self.channels
+
 
     def show_img(self):
         '''
@@ -92,11 +94,12 @@ class Img:
         show phase, dapi and outline in napari
         '''
         viewer = napari.Viewer()
-        viewer.add_image(self.phase_projection)
-        viewer.add_image(self.dapi, name='dapi')
-        viewer.add_image(self.ribo, name='ribo')
-        viewer.add_image(self.wga, name='wga')
+        viewer.add_image(self.phase_projection, blending='additive')
+        viewer.add_image(self.dapi, name='dapi', colormap='blue', blending='additive')
+        viewer.add_image(self.ribo, name='ribo', colormap='bop purple', blending='additive')
+        viewer.add_image(self.wga, name='wga', colormap='bop orange', blending='additive')
         viewer.add_labels(self.masks_outlines)
+        viewer.add_labels(self.masks)
         viewer.show(block=True)  # wait until viewer window closes
 
     def build_all_props_df(self):
@@ -242,10 +245,11 @@ class Img:
         This function will iterate over all the elements of the mask and check if any of the elements match with the value2 of tuple.
         If yes, then it will replace that element with the value1 of that tuple.
         """
-        for val1, val2 in self.prop_df[self.prop_df.prediction == 1].idx.str.split('&').apply(lambda x: [int(i) for i in x]):
+        for val1, val2 in self.prop_df[self.prop_df.prediction == 1].idx.str.split('&').apply(
+                lambda x: [int(i) for i in x]):
             self.masks[self.masks == val2] = val1
 
-    def extract_single_cell_images(self, output_size=100, corner_distance=100):
+    def extract_single_cell_images(self, output_size=100, corner_distance=100, add_noise=True, dilution= 3):
         save_dir = f'{self.temp_files_path}/../single_cell_data'
         pros = measure.regionprops_table(self.masks, properties=['label',
                                                                  'bbox'])
@@ -262,19 +266,26 @@ class Img:
             bottom_right = (min(self.masks.shape[1], top_left[0] + output_size),
                             min(self.masks.shape[0], top_left[1] + output_size))
 
-            #filter border cells
+            # filter border cells
             if top_left[0] < corner_distance or top_left[1] < corner_distance or bottom_right[0] > self.masks.shape[
                 1] - corner_distance or bottom_right[1] > self.masks.shape[0] - corner_distance:
                 continue
 
             # Extract the bounding box from the image and mask
-            bounding_box_img = self.phase_projection[top_left[1]:bottom_right[1], top_left[0]:bottom_right[0]]
-            bounding_box_mask = self.masks[top_left[1]:bottom_right[1], top_left[0]:bottom_right[0]]
-            bounding_box_dapi = self.dapi[top_left[1]:bottom_right[1], top_left[0]:bottom_right[0]]
-            bounding_box_ribo = self.ribo[top_left[1]:bottom_right[1], top_left[0]:bottom_right[0]]
-            bounding_box_wga = self.wga[top_left[1]:bottom_right[1], top_left[0]:bottom_right[0]]
+            bounding_box_img = copy.deepcopy(self.phase_projection[top_left[1]:bottom_right[1], top_left[0]:bottom_right[0]])
+            bounding_box_mask = copy.deepcopy(self.masks[top_left[1]:bottom_right[1], top_left[0]:bottom_right[0]])
+            bounding_box_dapi = copy.deepcopy(self.dapi[top_left[1]:bottom_right[1], top_left[0]:bottom_right[0]])
+            bounding_box_ribo = copy.deepcopy(self.ribo[top_left[1]:bottom_right[1], top_left[0]:bottom_right[0]])
+            bounding_box_wga = copy.deepcopy(self.wga[top_left[1]:bottom_right[1], top_left[0]:bottom_right[0]])
             bb_mask = np.zeros_like(bounding_box_mask)
             bb_mask[bounding_box_mask == label] = 1
+
+            if add_noise:
+                bb_mask = morphology.dilation(bb_mask, morphology.square(dilution))
+                bounding_box_dapi[bb_mask == 0] = 0
+                bounding_box_ribo[bb_mask == 0] = 0
+                bounding_box_wga[bb_mask == 0] = 0
+                bounding_box_img[bb_mask == 0] = 0
 
             # Combine the image and mask into a single array
             bounding_box = np.array([bounding_box_img, bb_mask, bounding_box_dapi, bounding_box_ribo, bounding_box_wga])
@@ -314,6 +325,7 @@ def calc_major_pairs(box1, box2):
     dist = distance.euclidean(min_t, max_t)
     return dist
 
+
 def is_overlap_1d(x1_max, x1_min, x2_max, x2_min):
     if x1_max >= x2_min and x2_max >= x1_min:
         return True
@@ -326,6 +338,7 @@ def is_overlap_2d(box1, box2):
         return True
     else:
         return False
+
 
 def create_pairs_all_props_list(props_data, pairs_list, label, output_list):
     '''
