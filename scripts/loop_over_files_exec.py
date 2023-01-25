@@ -3,7 +3,7 @@ import subprocess
 import os
 import pandas as pd
 
-path = r'/home/labs/danielda/yedidyab/dl4cv_project/test_data/raw_data/*nd2'
+path = r'/home/labs/danielda/dl4cv_project/test_data/raw_data/*nd2'
 
 single_cell_path = r'/home/labs/danielda/dl4cv_project/test_data/single_cell_data_test/'
 if not os.path.exists(single_cell_path):
