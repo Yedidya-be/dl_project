@@ -43,6 +43,7 @@ def concatenate_csv(path):
 
 
 for file in glob.iglob(path):
+    print(file)
 
     if os.path.exists(single_cell_path + file.split('.')[0].split('/')[-1]):
         print(f'{file} already exist')
