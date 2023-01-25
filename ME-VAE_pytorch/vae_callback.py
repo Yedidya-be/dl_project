@@ -9,6 +9,7 @@ from skimage.io import imread, imsave
 from skimage.transform import resize
 import math
 from keras.preprocessing.image import ImageDataGenerator
+
 def prep_img(ID): #Function for image adjustment for display
         img=imread(ID)
         unlist=np.unique(img)
