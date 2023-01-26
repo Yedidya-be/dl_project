@@ -86,7 +86,8 @@ class Img:
 
 
     def alighnment(self):
-        self.channels = [align(self.phase_projection, channel) for channel in self.channels]
+        self.channels = [align(self.masks, channel) for channel in self.channels]
+        self.phase_projection = align(self.masks, self.phase_projection)
 
     def reduce_high_signals(self):
         self.channels = [reduce(channel) for channel in self.channels]
