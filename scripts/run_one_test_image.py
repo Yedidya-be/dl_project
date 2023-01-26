@@ -22,12 +22,12 @@ def run_image(path1, path2):
 
     temp = utils.Img(path1, temp_files_path=temp_files_path)
     temp2 = utils.Img(path2, temp_files_path=temp_files_path)
-    temp.wga = np.max(temp2.matrix[:, -1, :, :], axis=0)
+    temp.wga = temp2.wga
     temp.segment(model=segmentation_model)
     temp.alighnment()
+    # temp.predict_division(rf_model=detect_div_model)
+    # temp.replace_values_in_mask()
     temp.reduce_high_signals()
-    temp.predict_division(rf_model=detect_div_model)
-    temp.replace_values_in_mask()
     temp.extract_single_cell_images()
 
 
