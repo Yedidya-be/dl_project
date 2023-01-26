@@ -5,7 +5,6 @@ import napari
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 from scipy.spatial import distance
-
 mpl.rcParams['figure.dpi'] = 300
 from cellpose import io
 from cellpose import models, plot
@@ -77,8 +76,14 @@ class Img:
                 os.makedirs(save_dir)
             io.masks_flows_to_seg(img, masks, flows, diameter, save_path)
         print(f'load from {save_path}_seg.npy')
-        loader = np.load(save_path + '_seg.npy', allow_pickle=True).item()
-        self.masks, self.masks_outlines = loader['masks'], loader['outlines']
+        try:
+            loader = np.load(save_path + '_seg.npy', allow_pickle=True).item()
+            self.masks, self.masks_outlines = loader['masks'], loader['outlines']
+        except:
+            loader = np.load(save_path + '_seg.npy', allow_pickle=True)
+            self.masks = loader
+            self.masks_outlines = np.zeros_like(self.masks)
+
 
     def alighnment(self):
         self.channels = [align(self.phase_projection, channel) for channel in self.channels]
