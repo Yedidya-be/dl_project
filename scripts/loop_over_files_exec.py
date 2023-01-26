@@ -3,9 +3,9 @@ import subprocess
 import os
 import pandas as pd
 
-path = r'/home/labs/danielda/dl4cv_project/test_data/raw_data/*nd2'
+path = r'/home/labs/danielda/yedidyab/dl_project/test_data/raw_data/*nd2'
 
-single_cell_path = r'/home/labs/danielda/dl4cv_project/test_data/single_cell_data_test/'
+single_cell_path = r'/home/labs/danielda/yedidyab/dl_project/test_data/single_cell_data_test/'
 if not os.path.exists(single_cell_path):
     os.makedirs(single_cell_path)
 
@@ -53,5 +53,5 @@ for file in glob.iglob(path):
         subprocess.run(to_exec)
 
 # save single_concatenated_csv
-path = r'/home/labs/danielda/dl4cv_project/temp_files/props_df/'
-concatenate_csv(path)
+# path = r'/home/labs/danielda/dl4cv_project/temp_files/props_df/'
+# concatenate_csv(path)

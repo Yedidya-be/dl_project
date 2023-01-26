@@ -76,7 +76,7 @@ class Img:
             if not os.path.exists(save_dir):
                 os.makedirs(save_dir)
             io.masks_flows_to_seg(img, masks, flows, diameter, save_path)
-
+        print(f'load from {save_path}_seg.npy')
         loader = np.load(save_path + '_seg.npy', allow_pickle=True).item()
         self.masks, self.masks_outlines = loader['masks'], loader['outlines']
 
