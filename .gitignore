@@ -3,3 +3,5 @@ _single_cell_data/
 raw_data/
 temp_files/
 single_cell_data/
+*.npy
+*.pyc
