@@ -85,8 +85,9 @@ class VariationalAutoencoder(nn.Module):
         return self.decoder(z)
 
 
-def train(autoencoder, train_dara, validation_data, epochs=1):
+def train(autoencoder, train_dara, validation_data, epochs=3):
     opt = torch.optim.Adam(autoencoder.parameters())
+    loss_func = nn.BCELoss()
     losses = []
     val_losses = []
     i = 0
@@ -114,7 +115,7 @@ def train(autoencoder, train_dara, validation_data, epochs=1):
     # sns.scatterplot(losses)
     # sns.scatterplot(val_losses)
     # plt.show()
-    return autoencoder
+    return losses, autoencoder
 
 
 latent_dims = 256
@@ -175,6 +176,7 @@ class TestDataset(torch.utils.data.Dataset):
 
 
 dir_path = r'X:\yedidyab\dl_project\test_data\single_cell_data\fov_12_hyb_1'
+dir_path = r'X:\dl4cv_project\single_cell_data_without_background\Count00000_Point0000_ChannelPHASE_60x-100x_PH3,DAPI,A488,A555,A647_Seq0000\channel_PH3\OutputImages\train'
 
 def to_tensor32(data):
     data = data.astype(np.float32)
@@ -188,10 +190,35 @@ data = torch.utils.data.DataLoader(
 )
 
 vae = VariationalAutoencoder(latent_dims).to(device)  # GPU
-train_data, validation_data = torch.utils.data.random_split(data.dataset, [0.8, 0.2])
-train_loader = DataLoader(train_data, batch_size=64, shuffle=True)
-val_loader = DataLoader(validation_data, batch_size=64, shuffle=True)
-vae, losses = train(vae, train_loader, val_loader)
+vae = train(vae, data)
+
+# train_data, validation_data = torch.utils.data.random_split(data.dataset, [0.8, 0.2])
+# train_loader = DataLoader(train_data, batch_size=64, shuffle=True)
+# val_loader = DataLoader(validation_data, batch_size=64, shuffle=True)
+# losses, vae = train(vae, train_loader, val_loader)
+
+for i, x in enumerate(data):
+    x_hat = vae(x.to(device))
+    print(x_hat.shape)
+    x = x.detach().numpy()
+    x_hat = x_hat.detach().numpy()
+    break
+
+
+# Select 3 random indices
+indices = np.random.randint(0, 64, size=3)
+
+# Plot the selected images
+for i, index in enumerate(indices):
+    plt.subplot(3, 2, 2 * i + 1)
+    plt.imshow(x[index, 0, :, :], cmap='gray')
+    plt.title("Original Image")
+
+    plt.subplot(3, 2, 2 * i + 2)
+    plt.imshow(x_hat[index, 0, :, :], cmap='gray')
+    plt.title("Reconstructed Image")
+
+plt.show()
 
 def latant_z(autoencoder, data, num_batches=100):
     for i, x in enumerate(data):
@@ -202,7 +229,10 @@ def latant_z(autoencoder, data, num_batches=100):
 def plot_loss(losses):
     sns.scatterplot(losses)
 
-
+x = [i[0] for i in losses]
+y = [i[1].item() for i in losses]
+plt.scatter(x, y)
+plt.show()
 # def plot_latent(autoencoder, data, num_batches=100):
 #     for i, (x, y) in enumerate(data):
 #         z = autoencoder.encoder(x.to(device))
@@ -227,4 +257,4 @@ def plot_reconstructed(autoencoder, r0=(-5, 10), r1=(-10, 5), n=12):
     plt.imshow(img, extent=[*r0, *r1])
 
 
-plot_reconstructed(vae, r0=(-3, 3), r1=(-3, 3))
+# plot_reconstructed(vae, r0=(-3, 3), r1=(-3, 3))
