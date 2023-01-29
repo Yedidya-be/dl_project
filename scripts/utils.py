@@ -255,7 +255,7 @@ class Img:
                 lambda x: [int(i) for i in x]):
             self.masks[self.masks == val2] = val1
 
-    def extract_single_cell_images(self, output_size=100, corner_distance=100, add_noise=True, dilution= 3):
+    def extract_single_cell_images(self, output_size=100, corner_distance=100, zero_background=True, dilution= 3):
         save_dir = f'{self.temp_files_path}/../single_cell_data'
         pros = measure.regionprops_table(self.masks, properties=['label',
                                                                  'bbox'])
@@ -286,7 +286,7 @@ class Img:
             bb_mask = np.zeros_like(bounding_box_mask)
             bb_mask[bounding_box_mask == label] = 1
 
-            if add_noise:
+            if zero_background:
                 bb_mask = morphology.dilation(bb_mask, morphology.square(dilution))
                 bounding_box_dapi[bb_mask == 0] = 0
                 bounding_box_ribo[bb_mask == 0] = 0

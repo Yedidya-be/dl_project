@@ -1,7 +1,7 @@
-conda create --name piplnew python=3.8
+conda create --name pnew python=3.8
 
 
-conda activate piplnew
+conda activate pnew
 
 
 python -m pip install cellpose[gui]
@@ -25,10 +25,18 @@ conda install -c conda-forge matplotlib
 pip uninstall torch
 
 
-conda install pytorch cudatoolkit=11.3 -c pytorch
+pip install PySide2
 
 
-python -m pip install "napari[all]"
+python -m pip install "napari"
+
+
+conda install -c conda-forge napari
 
 
 conda install -c anaconda seaborn
+
+
+
+
+

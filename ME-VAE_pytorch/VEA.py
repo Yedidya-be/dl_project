@@ -1,25 +1,32 @@
-#from https://avandekleut.github.io/vae/
-
-import torch; torch.manual_seed(0)
+# from https://avandekleut.github.io/vae/
+import pandas as pd
+import torch
+import seaborn as sns
+torch.manual_seed(0)
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.utils
 import torch.distributions
 import torchvision
 import numpy as np
-import matplotlib.pyplot as plt; plt.rcParams['figure.dpi'] = 200
+import matplotlib.pyplot as plt;
+import tqdm
+
+plt.rcParams['figure.dpi'] = 200
 import os
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 
-
 class VariationalEncoder(nn.Module):
     def __init__(self, latent_dims):
         super(VariationalEncoder, self).__init__()
-        self.linear1 = nn.Linear(10000, 512)
-        self.linear2 = nn.Linear(512, latent_dims)
-        self.linear3 = nn.Linear(512, latent_dims)
+        self.linear1 = nn.Linear(10000, 4096)
+        self.linear2 = nn.Linear(4096, 2048)
+        self.linear3 = nn.Linear(2048, 1024)
+        self.linear4 = nn.Linear(1024, 512)
+        self.linear5 = nn.Linear(512, latent_dims)
+        self.linear6 = nn.Linear(512, latent_dims)
 
         self.N = torch.distributions.Normal(0, 1)
         # self.N.loc = self.N.loc.cuda()  # hack to get sampling on the GPU
@@ -29,12 +36,18 @@ class VariationalEncoder(nn.Module):
     def forward(self, x):
         x = torch.flatten(x, start_dim=1)
         # print(x.shape)
-        x=self.linear1(x)
+        x = self.linear1(x)
         x = F.relu(x)
-        mu = self.linear2(x)
-        sigma = torch.exp(self.linear3(x))
+        x = self.linear2(x)
+        x = F.relu(x)
+        x = self.linear3(x)
+        x = F.relu(x)
+        x = self.linear4(x)
+        x = F.relu(x)
+        mu = self.linear5(x)
+        sigma = torch.exp(self.linear6(x))
         z = mu + sigma * self.N.sample(mu.shape)
-        print(z)
+        # print(z)
         self.kl = (sigma ** 2 + mu ** 2 - torch.log(sigma) - 1 / 2).sum()
         return z
 
@@ -62,19 +75,40 @@ class VariationalAutoencoder(nn.Module):
         return self.decoder(z)
 
 
-def train(autoencoder, data, epochs=20):
+def train(autoencoder, data, validation_data, epochs=20):
     opt = torch.optim.Adam(autoencoder.parameters())
-    for epoch in range(epochs):
+    losses = []
+    val_losses = []
+    i = 0
+    for epoch in tqdm.tqdm(range(epochs)):
         for x in data:
-            x = x.to(device) # GPU
+            i += 1
+            x = x.to(device)  # GPU
             opt.zero_grad()
             x_hat = autoencoder(x)
-            loss = ((x - x_hat)**2).sum() + autoencoder.encoder.kl
+            loss = ((x - x_hat) ** 2).sum() + autoencoder.encoder.kl
+            losses.append((i, loss))
             loss.backward()
             opt.step()
+
+        # Validation
+        with torch.no_grad():
+            val_loss = 0
+            for x in validation_data:
+                x = x.to(device)
+                x_hat = autoencoder(x)
+                val_loss += ((x - x_hat) ** 2).sum() + autoencoder.encoder.kl
+            val_loss /= len(validation_data)
+            val_losses.append((i, val_loss))
+            print(f'Epoch {epoch + 1}, Loss: {loss.item():.4f}, Validation Loss: {val_loss.item():.4f}')
+    sns.scatterplot(losses)
+    sns.scatterplot(val_losses)
+    plt.show()
     return autoencoder
 
-latent_dims = 32
+
+latent_dims = 256
+
 
 # data = torch.utils.data.DataLoader(
 #         torchvision.datasets.MNIST('./data',
@@ -94,20 +128,52 @@ class NumpyDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, idx):
         file_path = os.path.join(self.root_dir, self.file_list[idx])
-        data = np.load(file_path).astype(np.float32).reshape(100,100)
-        data = data/70000
+        data = np.load(file_path)[0, ...].astype(np.float32).reshape(100, 100)
+        data = data / 70000
         # print(data)
         if self.transform:
             data = self.transform(data)
         return data
 
-#example of usage
-dir_path = r'X:\dl4cv_project\single_cell_data_without_background\Count00000_Point0000_ChannelPHASE_60x-100x_PH3,DAPI,A488,A555,A647_Seq0000\channel_PH3\OutputImages\train'
+
+class TestDataset(torch.utils.data.Dataset):
+    def __init__(self, root_dir, df_path, transform=None):
+        self.file_list = []
+        self.df = pd.read_csv(df_path)
+        for dirpath, dirnames, filenames in os.walk(root_dir):
+            for filename in filenames:
+                if filename.endswith('.npy'):
+                    image = re.search(r'fov_(\d+)_hyb_1', dirpath)
+                    cell = re.search(r'label_(\d+)_bb', filename)
+                    if image:
+                        fov_number = 'fov_' + image.group(1) + '_' + cell.group(1)
+                        self.file_list.append((os.path.join(dirpath, filename), fov_number))
+        self.transform = transform
+
+    def __len__(self):
+        return len(self.file_list)
+
+    def __getitem__(self, idx):
+        file_path, s = self.file_list[idx]
+        od = self.df.loc[(self.df.field_of_view == '_'.join(s.split('_')[:-1])) & (
+                    self.df.cell_id == float(s.split('_')[-1])), 'sample_name'].item()
+        data = np.load(file_path)[0, ...].astype(np.float32).reshape(100, 100)
+        data = data / 70000
+        if self.transform:
+            data = self.transform(data)
+        return data, od
+
+
+# example of usage
+dir_path = r'X:\yedidyab\dl_project\test_data\single_cell_data\fov_12_hyb_1'
+
+
 # transform = torchvision.transforms.Compose([torchvision.transforms.ToTensor().to(torch.float32)])
 
 def to_tensor32(data):
     data = data.astype(np.float32)
     return torchvision.transforms.ToTensor()(data)
+
 
 data = torch.utils.data.DataLoader(
     NumpyDataset(dir_path, transform=to_tensor32),
@@ -115,14 +181,18 @@ data = torch.utils.data.DataLoader(
     shuffle=True
 )
 
-vae = VariationalAutoencoder(latent_dims).to(device) # GPU
-vae = train(vae, data)
+vae = VariationalAutoencoder(latent_dims).to(device)  # GPU
+vae, losses = train(vae, data)
+
 
 def latant_z(autoencoder, data, num_batches=100):
     for i, x in enumerate(data):
         z = vae.encoder(x.to(device))
         z = z.to('cpu').detach().numpy()
         break
+
+def plot_loss(losses):
+    sns.scatterplot(losses)
 
 # def plot_latent(autoencoder, data, num_batches=100):
 #     for i, (x, y) in enumerate(data):
@@ -138,13 +208,14 @@ def latant_z(autoencoder, data, num_batches=100):
 #
 def plot_reconstructed(autoencoder, r0=(-5, 10), r1=(-10, 5), n=12):
     w = 100
-    img = np.zeros((n*w, n*w))
+    img = np.zeros((n * w, n * w))
     for i, y in enumerate(np.linspace(*r1, n)):
         for j, x in enumerate(np.linspace(*r0, n)):
             z = torch.Tensor([[x, y]]).to(device)
             x_hat = autoencoder.decoder(z)
             x_hat = x_hat.reshape(0, 0).to('cpu').detach().numpy()
-            img[(n-1-i)*w:(n-1-i+1)*w, j*w:(j+1)*w] = x_hat
+            img[(n - 1 - i) * w:(n - 1 - i + 1) * w, j * w:(j + 1) * w] = x_hat
     plt.imshow(img, extent=[*r0, *r1])
+
 
 plot_reconstructed(vae, r0=(-3, 3), r1=(-3, 3))
