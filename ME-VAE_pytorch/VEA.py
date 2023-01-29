@@ -118,33 +118,23 @@ data = torch.utils.data.DataLoader(
 vae = VariationalAutoencoder(latent_dims).to(device) # GPU
 vae = train(vae, data)
 
-def latant_z(autoencoder, data, num_batches=100):
-    for i, x in enumerate(data):
-        z = vae.encoder(x.to(device))
-        z = z.to('cpu').detach().numpy()
-        break
+for i, x in enumerate(data):
+    x_hat = vae(x.to(device))
+    x_hat = x_hat.detach().numpy()
+    x = x.detach().numpy()
+    break
 
-# def plot_latent(autoencoder, data, num_batches=100):
-#     for i, (x, y) in enumerate(data):
-#         z = autoencoder.encoder(x.to(device))
-#         z = z.to('cpu').detach().numpy()
-#         plt.scatter(z[:, 0], z[:, 1], c=y, cmap='tab10')
-#         if i > num_batches:
-#             plt.colorbar()
-#             plt.show()
-#             break
-#
-# plot_latent(vae, data)
-#
-def plot_reconstructed(autoencoder, r0=(-5, 10), r1=(-10, 5), n=12):
-    w = 100
-    img = np.zeros((n*w, n*w))
-    for i, y in enumerate(np.linspace(*r1, n)):
-        for j, x in enumerate(np.linspace(*r0, n)):
-            z = torch.Tensor([[x, y]]).to(device)
-            x_hat = autoencoder.decoder(z)
-            x_hat = x_hat.reshape(0, 0).to('cpu').detach().numpy()
-            img[(n-1-i)*w:(n-1-i+1)*w, j*w:(j+1)*w] = x_hat
-    plt.imshow(img, extent=[*r0, *r1])
+# Select 3 random indices
+indices = np.random.randint(0, 64, size=3)
 
-plot_reconstructed(vae, r0=(-3, 3), r1=(-3, 3))
+# Plot the selected images
+for i, index in enumerate(indices):
+    plt.subplot(3, 2, 2 * i + 1)
+    plt.imshow(x[index, 0, :, :], cmap='gray')
+    plt.title("Original Image")
+
+    plt.subplot(3, 2, 2 * i + 2)
+    plt.imshow(x_hat[index, 0, :, :], cmap='gray')
+    plt.title("Reconstructed Image")
+
+plt.show()
