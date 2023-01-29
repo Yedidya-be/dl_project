@@ -297,6 +297,7 @@ class Img:
             bounding_box = np.array([bounding_box_img, bb_mask, bounding_box_dapi, bounding_box_ribo, bounding_box_wga])
             if not os.path.exists(f'{save_dir}/{self.name}'):
                 os.makedirs(f'{save_dir}/{self.name}')
+            print(f'{save_dir}/{self.name}/label_{label}_bb_{min_col}_{max_row}.npy')
             np.save(file=f'{save_dir}/{self.name}/label_{label}_bb_{min_col}_{max_row}.npy', arr=bounding_box)
 
 

@@ -2,6 +2,8 @@
 import pandas as pd
 import torch
 import seaborn as sns
+from torch.utils.data import DataLoader
+
 torch.manual_seed(0)
 import torch.nn as nn
 import torch.nn.functional as F
@@ -11,6 +13,7 @@ import torchvision
 import numpy as np
 import matplotlib.pyplot as plt;
 import tqdm
+import re
 
 plt.rcParams['figure.dpi'] = 200
 import os
@@ -53,8 +56,8 @@ class VariationalEncoder(nn.Module):
 
 
 class Decoder(nn.Module):
-    def init(self, latent_dims):
-        super(Decoder, self).init()
+    def __init__(self, latent_dims):
+        super(Decoder, self).__init__()
         self.linear1 = nn.Linear(latent_dims, 512)
         self.linear2 = nn.Linear(512, 1024)
         self.linear3 = nn.Linear(1024, 2048)
@@ -70,6 +73,7 @@ class Decoder(nn.Module):
         return z.reshape((-1, 1, 100, 100))
 
 
+
 class VariationalAutoencoder(nn.Module):
     def __init__(self, latent_dims):
         super(VariationalAutoencoder, self).__init__()
@@ -81,13 +85,13 @@ class VariationalAutoencoder(nn.Module):
         return self.decoder(z)
 
 
-def train(autoencoder, data, validation_data, epochs=10):
+def train(autoencoder, train_dara, validation_data, epochs=1):
     opt = torch.optim.Adam(autoencoder.parameters())
     losses = []
     val_losses = []
     i = 0
     for epoch in tqdm.tqdm(range(epochs)):
-        for x in data:
+        for x in train_dara:
             i += 1
             x = x.to(device)  # GPU
             opt.zero_grad()
@@ -107,9 +111,9 @@ def train(autoencoder, data, validation_data, epochs=10):
             val_loss /= len(validation_data)
             val_losses.append((i, val_loss))
             print(f'Epoch {epoch + 1}, Loss: {loss.item():.4f}, Validation Loss: {val_loss.item():.4f}')
-    sns.scatterplot(losses)
-    sns.scatterplot(val_losses)
-    plt.show()
+    # sns.scatterplot(losses)
+    # sns.scatterplot(val_losses)
+    # plt.show()
     return autoencoder
 
 
@@ -184,8 +188,10 @@ data = torch.utils.data.DataLoader(
 )
 
 vae = VariationalAutoencoder(latent_dims).to(device)  # GPU
-vae, losses = train(vae, data)
-
+train_data, validation_data = torch.utils.data.random_split(data.dataset, [0.8, 0.2])
+train_loader = DataLoader(train_data, batch_size=64, shuffle=True)
+val_loader = DataLoader(validation_data, batch_size=64, shuffle=True)
+vae, losses = train(vae, train_loader, val_loader)
 
 def latant_z(autoencoder, data, num_batches=100):
     for i, x in enumerate(data):
@@ -195,6 +201,7 @@ def latant_z(autoencoder, data, num_batches=100):
 
 def plot_loss(losses):
     sns.scatterplot(losses)
+
 
 # def plot_latent(autoencoder, data, num_batches=100):
 #     for i, (x, y) in enumerate(data):
