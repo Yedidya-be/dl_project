@@ -53,14 +53,20 @@ class VariationalEncoder(nn.Module):
 
 
 class Decoder(nn.Module):
-    def __init__(self, latent_dims):
-        super(Decoder, self).__init__()
+    def init(self, latent_dims):
+        super(Decoder, self).init()
         self.linear1 = nn.Linear(latent_dims, 512)
-        self.linear2 = nn.Linear(512, 10000)
+        self.linear2 = nn.Linear(512, 1024)
+        self.linear3 = nn.Linear(1024, 2048)
+        self.linear4 = nn.Linear(2048, 4096)
+        self.linear5 = nn.Linear(4096, 10000)
 
     def forward(self, z):
         z = F.relu(self.linear1(z))
-        z = torch.sigmoid(self.linear2(z))
+        z = F.relu(self.linear2(z))
+        z = F.relu(self.linear3(z))
+        z = F.relu(self.linear4(z))
+        z = torch.sigmoid(self.linear5(z))
         return z.reshape((-1, 1, 100, 100))
 
 
@@ -75,7 +81,7 @@ class VariationalAutoencoder(nn.Module):
         return self.decoder(z)
 
 
-def train(autoencoder, data, validation_data, epochs=20):
+def train(autoencoder, data, validation_data, epochs=10):
     opt = torch.optim.Adam(autoencoder.parameters())
     losses = []
     val_losses = []
@@ -164,11 +170,7 @@ class TestDataset(torch.utils.data.Dataset):
         return data, od
 
 
-# example of usage
 dir_path = r'X:\yedidyab\dl_project\test_data\single_cell_data\fov_12_hyb_1'
-
-
-# transform = torchvision.transforms.Compose([torchvision.transforms.ToTensor().to(torch.float32)])
 
 def to_tensor32(data):
     data = data.astype(np.float32)

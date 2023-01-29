@@ -50,7 +50,7 @@ for file in glob.iglob(path):
     elif 'hyb_12' in file:
         print('hyb_12 - skip')
     else:
-        to_exec = 'bsub -gpu num=1 -q gpu-short -J test1 -eo /home/labs/danielda/yedidyab/dl_project/temp_files/wecax_out_err/errors_%J.txt -oo /home/labs/danielda/yedidyab/dl_project/temp_files/wecax_out_err/output_%J.txt -R rusage[mem=5000] python /home/labs/danielda/yedidyab/dl_project/scripts/run_one_test_image.py'.split()
+        to_exec = 'bsub -gpu num=1 -q gpu-short -J test1 -eo /home/labs/danielda/yedidyab/dl_project/temp_files/wecax_out_err/errors_%J.txt -oo /home/labs/danielda/yedidyab/dl_project/temp_files/wecax_out_err/output_%J.txt -R rusage[mem=5000] python /home/labs/danielda/yedidyab/dl_project/scripts/run_one_image.py'.split()
         to_exec.append(file)
         subprocess.run(to_exec)
 

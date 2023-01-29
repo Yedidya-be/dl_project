@@ -22,8 +22,8 @@ def run_image(path):
     temp.segment(model=segmentation_model)
     temp.alighnment()
     temp.reduce_high_signals()
-    # temp.predict_division(rf_model=detect_div_model)
-    # temp.replace_values_in_mask()
+    temp.predict_division(rf_model=detect_div_model)
+    temp.replace_values_in_mask()
     temp.extract_single_cell_images()
 
 

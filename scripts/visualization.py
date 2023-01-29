@@ -15,6 +15,11 @@ def show_napari(image_path):
     viewer.add_image(image[4, ...], name='wga')
     viewer.show(block=True)  # wait until viewer window closes
 
+def npy_show(image_path):
+    image = np.load(image_path).reshape(100, 100)
+    plt.imshow(image)
+    plt.show()
+
 def show_plt_size_condition(list_of_path, channel):
     # while True:
     image_path = random.choice(result)
@@ -26,9 +31,9 @@ def show_plt_size_condition(list_of_path, channel):
 
 
 
-path = r'X:\yedidyab\dl_project\single_cell_data'
-result = [os.path.join(dp, f) for dp, dn, filenames in os.walk(path) for f in filenames if
-          os.path.splitext(f)[1] == '.npy']
+# path = r'X:\yedidyab\dl_project\single_cell_data'
+# result = [os.path.join(dp, f) for dp, dn, filenames in os.walk(path) for f in filenames if
+#           os.path.splitext(f)[1] == '.npy']
 
 
 def plot_matrices():
