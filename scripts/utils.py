@@ -255,8 +255,10 @@ class Img:
                 lambda x: [int(i) for i in x]):
             self.masks[self.masks == val2] = val1
 
-    def extract_single_cell_images(self, output_size=100, corner_distance=100, zero_background=True, dilution= 3):
-        save_dir = f'{self.temp_files_path}/../single_cell_data'
+    def extract_single_cell_images(self, output_size=100, corner_distance=100, zero_background=True, dilution= 3, save_dir = None):
+        if not save_dir:
+            save_dir = f'{self.temp_files_path}/../single_cell_data'
+            print(f'saving at: {save_dir}')
         pros = measure.regionprops_table(self.masks, properties=['label',
                                                                  'bbox'])
         props_data = pd.DataFrame(pros)
@@ -297,7 +299,6 @@ class Img:
             bounding_box = np.array([bounding_box_img, bb_mask, bounding_box_dapi, bounding_box_ribo, bounding_box_wga])
             if not os.path.exists(f'{save_dir}/{self.name}'):
                 os.makedirs(f'{save_dir}/{self.name}')
-            print(f'{save_dir}/{self.name}/label_{label}_bb_{min_col}_{max_row}.npy')
             np.save(file=f'{save_dir}/{self.name}/label_{label}_bb_{min_col}_{max_row}.npy', arr=bounding_box)
 
 

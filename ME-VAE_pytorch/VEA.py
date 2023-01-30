@@ -85,7 +85,7 @@ class VariationalAutoencoder(nn.Module):
         return self.decoder(z)
 
 
-def train(autoencoder, train_dara, validation_data, epochs=3):
+def train(autoencoder, train_dara, validation_data, epochs=1):
     opt = torch.optim.Adam(autoencoder.parameters())
     loss_func = nn.BCELoss()
     losses = []

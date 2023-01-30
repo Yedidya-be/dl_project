@@ -5,7 +5,7 @@ import os
 temp_files_path = r'/home/labs/danielda/yedidyab/dl_project/temp_files'
 segmentation_model = r'/home/labs/danielda/yedidyab/dl_project/models/cellpose_100X_model'
 detect_div_model = r'/home/labs/danielda/yedidyab/dl_project/models/rf_detect_div_model_942acc.pkl'
-
+single_cell_path = r'/home/labs/danielda/dl4cv_project/single_cell_without_background_128'
 path = sys.argv[1]
 
 # import sys
@@ -24,7 +24,7 @@ def run_image(path):
     temp.reduce_high_signals()
     temp.predict_division(rf_model=detect_div_model)
     temp.replace_values_in_mask()
-    temp.extract_single_cell_images()
+    temp.extract_single_cell_images(output_size=128)
 
 
 run_image(path)
