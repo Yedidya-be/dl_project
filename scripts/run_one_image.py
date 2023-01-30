@@ -24,7 +24,7 @@ def run_image(path):
     temp.reduce_high_signals()
     temp.predict_division(rf_model=detect_div_model)
     temp.replace_values_in_mask()
-    temp.extract_single_cell_images(output_size=128)
+    temp.extract_single_cell_images(output_size=128, save_dir=single_cell_path)
 
 
 run_image(path)
