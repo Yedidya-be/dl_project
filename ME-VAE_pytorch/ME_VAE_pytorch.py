@@ -15,74 +15,118 @@ import matplotlib.pyplot as plt
 from torchsummary import summary
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
 
 
 class VariationalEncoder(nn.Module):
-    def __init__(self, latent_dims):
-        super().__init__()
-        self.encoder = nn.Sequential(
-            nn.Conv2d(1, 16, 7, 2, 3),
-            nn.ReLU(),
-            nn.Conv2d(16, 32, 4, 2, 1),
-            nn.ReLU(),
-            nn.Conv2d(32, 64, 4, 2, 1),
-            nn.ReLU(),
-            nn.Conv2d(64, 128, 4, 2, 1),
-            nn.ReLU()
-        )
-        self.mu = nn.Linear(4608, latent_dims) #TO CHANGE!
-        self.log_var = nn.Linear(4608, latent_dims)
-        self.N = torch.distributions.Normal(0, 1)
-        self.kl = 0
-        self.reset_parameters()
+    def __init__(self, image_size=128, nchannel=1, nfilters=16, kernel_size=3, nlayers=3, inter_dim=128, latent_dim=32):
+        super(VariationalEncoder, self).__init__()
 
-    def reset_parameters(self):
-        for layer in self.encoder:
-            if isinstance(layer, nn.Conv2d):
-                nn.init.kaiming_uniform_(layer.weight)
-        nn.init.kaiming_uniform_(self.mu.weight)
-        nn.init.kaiming_uniform_(self.log_var.weight)
+        self.image_size = image_size
+        self.nchannel = nchannel
+        self.nfilters = nfilters
+        self.kernel_size = kernel_size
+        self.nlayers = nlayers
+        self.inter_dim = inter_dim
+
+        self.latent_dim = latent_dim
+        self.conv = nn.Sequential(nn.Conv2d(in_channels=self.nchannel,
+                                            out_channels=self.nfilters,
+                                            kernel_size=kernel_size,
+                                            stride=2,
+                                            padding=1))
+        self.conv.add_module('ReLu-0', nn.ReLU())
+        filters = nfilters
+        kernel_size = kernel_size
+        for i in range(nlayers):
+            self.conv.add_module(f'conv_{i}', nn.Conv2d(in_channels=filters,
+                                                        out_channels=filters * 2,
+                                                        kernel_size=kernel_size,
+                                                        stride=2,
+                                                        padding=1))
+            self.conv.add_module(f'relu_{i}', nn.ReLU())
+            filters *= 2
+
+        self.conv.add_module('flat', nn.Flatten())
+        self.fc1 = nn.Linear(8192, self.inter_dim)  # change this hardcode! (need to calc shapes)
+        self.fc_mean = nn.Linear(inter_dim, latent_dim)  # change and add layer name
+        self.fc_log_var = nn.Linear(inter_dim, latent_dim)  # change and add layer name
+
+    def encode(self, x):
+        x = self.conv(x)
+        x = F.relu(self.fc1(x))
+        mean = self.fc_mean(x)
+        log_var = self.fc_log_var(x)
+        return mean, log_var
+
+    def reparameterize(self, mean, log_var):
+        std = torch.exp(0.5 * log_var)
+        eps = torch.randn_like(std)
+        return mean + eps * std
 
     def forward(self, x):
-        # print(summary(.shape)
-        x = self.encoder(x)
-        x = x.view(x.size(0), -1)
-        mu = self.mu(x)
-        log_var = self.log_var(x)
-        var = torch.exp(log_var)
-        z = mu + var * self.N.sample(mu.shape)
-        self.kl = 0.5 * torch.sum(var + mu ** 2 - 1 - log_var)
-        return z
+        mean, log_var = self.encode(x)
+        z = self.reparameterize(mean, log_var)
+        return z, mean, log_var
+
+
+v = VariationalEncoder()
+print(summary(v, (1, 128, 128), 64))
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
 
 
 class Decoder(nn.Module):
-    def __init__(self, latent_dims):
-        super().__init__()
-        self.decoder = nn.Sequential(
-            nn.ConvTranspose2d(latent_dims, 256, kernel_size=3, stride=1, padding=0),
-            nn.ReLU(),
-            nn.ConvTranspose2d(256, 128, kernel_size=3, stride=2, padding=1),
-            nn.ReLU(),
-            nn.ConvTranspose2d(128, 64, kernel_size=3, stride=2, padding=1),
-            nn.ReLU(),
-            nn.ConvTranspose2d(64, 32, kernel_size=3, stride=2, padding=1),
-            nn.ReLU(),
-            nn.ConvTranspose2d(32, 1, kernel_size=2, stride=3, padding=1, output_padding = 2),
-        )
+    def __init__(self, image_size=128, nchannel=1, nfilters=16, kernel_size=3, nlayers=3, inter_dim=128, latent_dim=32):
+        super(Decoder, self).__init__()
+
+        self.image_size = image_size
+        self.nchannel = nchannel
+        self.nfilters = nfilters
+        self.kernel_size = kernel_size
+        self.nlayers = nlayers
+        self.inter_dim = inter_dim
+        self.latent_dim = latent_dim
+
+        self.fc1 = nn.Linear(latent_dim, inter_dim)
+        self.fc2 = nn.Linear(inter_dim, 8192)
+        self.deconv = nn.Sequential()
+        filters = self.nfilters * (nlayers+1)* 2
+        print(filters)
+        # self.deconv.add_module(f'upsample-0', nn.Upsample(scale_factor=2, mode='nearest'))
+        for i in range(nlayers):
+            self.deconv.add_module(f'deconv_{i}', nn.Conv2d(in_channels=filters,
+                                                            out_channels=filters//2,
+                                                            kernel_size=kernel_size,
+                                                            stride=2,
+                                                            padding=1))
+            self.deconv.add_module(f'relu_{i}', nn.ReLU())
+            filters = filters//2
+        self.deconv.add_module(f'deconv_{nlayers}', nn.Conv2d(in_channels=filters,
+                                                               out_channels=self.nchannel,
+                                                               kernel_size=kernel_size,
+                                                               stride=2,
+                                                               padding=1))
+        self.deconv.add_module(f'sigmoid_{nlayers}', nn.Sigmoid())
 
     def forward(self, z):
-        z = z.view(-1, latent_dims, 1, 1)
-        x = self.decoder(z)
-        x = torch.sigmoid(x)
+        x = F.relu(self.fc1(z))
+        x = F.relu(self.fc2(x))
+        x = x.view(-1, self.nfilters * 2**(self.nlayers-1), (self.image_size//2**(self.nlayers))**2)
+        x = self.deconv(x)
         return x
 
-
-
+v = Decoder()
+print(summary(v, (32), 64))
 
 class VariationalAutoencoder(nn.Module):
     def __init__(self, latent_dims):
         super(VariationalAutoencoder, self).__init__()
-        self.encoder = VariationalEncoder(latent_dims)
+        self.encoder = VAE(latent_dims)
         self.decoder = Decoder(latent_dims)
 
     def forward(self, x):
@@ -96,7 +140,6 @@ def train(autoencoder, data, epochs=2):
     loss_values = []
     for epoch in tqdm.tqdm(range(epochs)):
         for x in data:
-            print(x.shape)
             x = x.to(device) # GPU
             opt.zero_grad()
             x_hat = autoencoder(x)
@@ -109,7 +152,7 @@ def train(autoencoder, data, epochs=2):
     return autoencoder
 
 
-latent_dims = 256
+latent_dims = 32
 
 # data = torch.utils.data.DataLoader(
 #         torchvision.datasets.MNIST('./data',
@@ -119,7 +162,8 @@ latent_dims = 256
 #         shuffle=True)
 
 class NumpyDataset(torch.utils.data.Dataset):
-    def __init__(self, root_dir, transform=None):
+    def __init__(self, root_dir, transform=None, image_size = 128):
+        self.image_size = image_size
         self.root_dir = root_dir
         self.file_list = os.listdir(self.root_dir)
         self.transform = transform
@@ -129,7 +173,7 @@ class NumpyDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, idx):
         file_path = os.path.join(self.root_dir, self.file_list[idx])
-        data = np.load(file_path)[0, ...].astype(np.float32).reshape(100,100)
+        data = np.load(file_path)[0, ...].astype(np.float32).reshape(self.image_size, self.image_size)
         data = data/70000
         # print(data)
         if self.transform:
@@ -139,6 +183,7 @@ class NumpyDataset(torch.utils.data.Dataset):
 #example of usage
 dir_path = r'X:\dl4cv_project\single_cell_data_without_background\Count00000_Point0000_ChannelPHASE_60x-100x_PH3,DAPI,A488,A555,A647_Seq0000\channel_PH3\OutputImages\train'
 dir_path = r'X:\yedidyab\dl_project\test_data\single_cell_data\fov_12_hyb_1'
+dir_path = r'X:\dl4cv_project\single_cell_without_background_128\Count00000_Point0036_ChannelPHASE 60x-100x PH3,DAPI,A488,A555,A647_Seq0036'
 # transform = torchvision.transforms.Compose([torchvision.transforms.ToTensor().to(torch.float32)])
 
 def to_tensor32(data):
