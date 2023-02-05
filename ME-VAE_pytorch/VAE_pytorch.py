@@ -6,11 +6,14 @@ import numpy as np
 import os
 import tqdm
 import torchvision
+import seaborn as sns
+import matplotlib.pyplot as plt
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
+
 class VariationalEncoder(nn.Module):
-    def __init__(self, image_size=128, nchannel=1, nfilters=16, kernel_size=3, nlayers=3, inter_dim=128, latent_dim=32):
+    def __init__(self, image_size=128, nchannel=1, nfilters=16, kernel_size=3, nlayers=3, inter_dim=128, latent_dim=64):
         super(VariationalEncoder, self).__init__()
 
         self.kl = None
@@ -59,12 +62,12 @@ class VariationalEncoder(nn.Module):
 
     def forward(self, x):
         mean, log_var = self.encode(x)
-        z = self.reparameterize(mean, log_var)
-        return z  # , mean, log_var
+        # z = self.reparameterize(mean, log_var)
+        return mean, log_var
 
 
 class Decoder(nn.Module):
-    def __init__(self, latent_dim=32, image_size=(1, 128, 128), nlayers=3, filters=64):
+    def __init__(self, latent_dim=64, image_size=(1, 128, 128), nlayers=3, filters=64):
         super(Decoder, self).__init__()
 
         self.latent_dim = latent_dim
@@ -98,7 +101,7 @@ class Decoder(nn.Module):
     def forward(self, x):
         x = self.fc(x)
         x = self.fc_activation(x)
-        print(x.shape)
+        # print(x.shape)
         x = x.view(-1, 64, 16, 16)
 
         for i, layer in enumerate(self.conv_layers):
@@ -106,6 +109,8 @@ class Decoder(nn.Module):
             x = nn.ReLU()(x)
 
         x = self.output_layer(x)
+        x = nn.Sigmoid()(x)
+
         return x
 
 
@@ -114,28 +119,37 @@ class VariationalAutoencoder(nn.Module):
         super(VariationalAutoencoder, self).__init__()
         self.encoder = VariationalEncoder(latent_dim=latent_dims)
         self.decoder = Decoder(latent_dim=latent_dims)
+        self.image_size = 128
+
+    def reparameterize(self, mean, log_var):
+        std = torch.exp(0.5 * log_var)
+        eps = torch.randn_like(std)
+        return mean + eps * std
 
     def forward(self, x):
-        z = self.encoder(x)
-        return self.decoder(z)
+        mean, log_var = self.encoder(x)
+        z = self.reparameterize(mean, log_var)
+        out = self.decoder(z)
+        return out, mean, log_var
 
 
-def train(autoencoder, data, epochs=2):
-    opt = torch.optim.Adam(autoencoder.parameters())
+def train(autoencoder, data, epochs=10):
+    opt = torch.optim.Adam(autoencoder.parameters(), lr=1e-3)
     loss_values = []
     for epoch in tqdm.tqdm(range(epochs)):
-        for x in data:
+        for i, x in enumerate(data):
             x = x.to(device)  # GPU
+            out, mean, log_var = autoencoder(x)
+            kl_divergence = 0.5 * torch.sum(-1 - log_var + mean.pow(2) + log_var.exp())
+            loss = F.binary_cross_entropy(out, x, size_average=False) + 10*kl_divergence
             opt.zero_grad()
-            x_hat = autoencoder(x)
-            loss = ((x - x_hat) ** 2).sum() + autoencoder.encoder.kl
             loss.backward()
             opt.step()
             loss_values.append(loss.item())
-            print(loss)
+        print('Epoch {}: Loss {}'.format(epoch, loss))
     sns.lineplot(range(len(loss_values)), loss_values)
     plt.show()
-    return autoencoder
+    return autoencoder, loss_values
 
 
 class NumpyDataset(torch.utils.data.Dataset):
@@ -157,11 +171,14 @@ class NumpyDataset(torch.utils.data.Dataset):
             data = self.transform(data)
         return data
 
-dir_path = r'X:\dl4cv_project\single_cell_without_background_128\Count00000_Point0013_ChannelPHASE_60x-100x_PH3,DAPI,A488,A555,A647_Seq0013'
+
+dir_path = r'X:\dl4cv_project\single_cell_without_background_128\Count00000_Point0023_ChannelPHASE_60x-100x_PH3,DAPI,A488,A555,A647_Seq0023'
+
 
 def to_tensor32(data):
     data = data.astype(np.float32)
     return torchvision.transforms.ToTensor()(data)
+
 
 data = torch.utils.data.DataLoader(
     NumpyDataset(dir_path, transform=to_tensor32),
@@ -169,9 +186,8 @@ data = torch.utils.data.DataLoader(
     shuffle=True
 )
 
-vae = VariationalAutoencoder(32).to(device) # GPU
-vae = train(vae, data)
-
+vae = VariationalAutoencoder(latent_dims=64).to(device)  # GPU
+vae, loss_values = train(vae, data, epochs=40)
 
 # v = VariationalEncoder()
 # print(summary(v, [(1, 128, 128)], 64))
@@ -179,6 +195,24 @@ vae = train(vae, data)
 # d = Decoder()
 # print(summary(d, [(32,)]))
 #
-vae = VariationalAutoencoder(32)
-print(summary(vae, [(1, 128, 128)], 64))
+# vae = VariationalAutoencoder(32)
+# print(summary(vae, [(1, 128, 128)], 64))
 # vae(torch.rand([64, 1, 128, 128]))
+import matplotlib.pyplot as plt
+import numpy as np
+import random
+
+vae.eval()
+with torch.no_grad():
+    for x in random.sample(list(data), 1):
+        img = x
+        # imgs = imgs.to(device)
+        # img = np.transpose(imgs[0].cpu().numpy(), [1,2,0])
+        plt.subplot(121)
+        plt.imshow(img[57, 0, ...])
+        out, mu, logVAR = vae(img)
+        # outimg = np.transpose(out[0].cpu().numpy(), [1,2,0])
+        plt.subplot(122)
+        plt.imshow(out[57, 0, ...])
+        plt.show()
+        break
