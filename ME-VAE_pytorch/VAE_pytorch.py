@@ -83,6 +83,7 @@ class Decoder(nn.Module):
         self.fc = nn.Linear(latent_dim, num_units)
         self.fc_activation = nn.ReLU()
 
+
         # Convolutional layers
         self.conv_layers = nn.ModuleList()
         for i in range(self.nlayers):
@@ -133,26 +134,42 @@ class VariationalAutoencoder(nn.Module):
         return out, mean, log_var
 
 
-def train(autoencoder, data, epochs=10):
+def train(autoencoder, data, epochs=10, to_plot=True):
     opt = torch.optim.Adam(autoencoder.parameters(), lr=1e-3)
     loss_values = []
     for epoch in tqdm.tqdm(range(epochs)):
         for i, x in enumerate(data):
             x = x.to(device)  # GPU
             out, mean, log_var = autoencoder(x)
-            kl_divergence = 0.5 * torch.sum(-1 - log_var + mean.pow(2) + log_var.exp())
-            loss = F.binary_cross_entropy(out, x, size_average=False) + 10*kl_divergence
+            # kld_loss = torch.mean(-0.5 * torch.sum(1 + log_var - mean ** 2 - log_var.exp(), dim=1), dim=0) * 64
+            # loss = F.binary_cross_entropy(out, x, reduction='sum') + kld_loss
+
+            xent_loss = nn.BCELoss(reduction='none')(out.view(-1), x.view(-1))
+            xent_loss = xent_loss.mean() * 128 * 128 * 64
+            kl_loss = 1 + log_var * 2 - mean.pow(2) - log_var.exp()
+            kl_loss = kl_loss.sum(-1) * -0.5
+            loss = (xent_loss + kl_loss).mean()
+
+            # # no kl
+            # loss = F.binary_cross_entropy(out, x, reduction='sum')
+
             opt.zero_grad()
             loss.backward()
             opt.step()
             loss_values.append(loss.item())
+
         print('Epoch {}: Loss {}'.format(epoch, loss))
-    sns.lineplot(range(len(loss_values)), loss_values)
-    plt.show()
+        sns.lineplot(range(len(loss_values[-100:])), loss_values[-100:])
+        plt.title(f'{epoch} noKL')
+        plt.show()
+    if to_plot:
+        sns.lineplot(range(len(loss_values)), loss_values)
+        plt.show()
     return autoencoder, loss_values
 
 
 class NumpyDataset(torch.utils.data.Dataset):
+
     def __init__(self, root_dir, transform=None, image_size=128):
         self.image_size = image_size
         self.root_dir = root_dir
@@ -186,8 +203,8 @@ data = torch.utils.data.DataLoader(
     shuffle=True
 )
 
-vae = VariationalAutoencoder(latent_dims=64).to(device)  # GPU
-vae, loss_values = train(vae, data, epochs=40)
+vae = VariationalAutoencoder(latent_dims=64).to(device)
+vae, loss_values = train(vae, data, epochs=25)
 
 # v = VariationalEncoder()
 # print(summary(v, [(1, 128, 128)], 64))
@@ -216,3 +233,5 @@ with torch.no_grad():
         plt.imshow(out[57, 0, ...])
         plt.show()
         break
+
+

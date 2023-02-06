@@ -4,7 +4,7 @@ import os
 import pandas as pd
 import sys
 
-path = r'/home/labs/danielda/yedidyab/yedidyab/dl_project/test_data/raw_data/*nd2'
+path = r'/home/labs/danielda/yedidyab/dl_project/test_data/raw_data/*nd2'
 # path = sys.argv[1]
 
 single_cell_path = r'/home/labs/danielda/yedidyab/dl_project/single_cell_data_test/'
