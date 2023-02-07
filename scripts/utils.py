@@ -238,8 +238,8 @@ class Img:
         self.prop_df.loc[abs(self.prop_df.orientation) < 1 - th, 'prediction'] = 0
         self.prop_df.loc[abs(self.prop_df.orientation) > 1 + th, 'prediction'] = 0
         th_or = 0.5
-        self.prop_df.loc[self.prop_df.orientation_line < 0 - th, 'prediction'] = 0
-        self.prop_df.loc[self.prop_df.orientation_line > 0 + th, 'prediction'] = 0
+        self.prop_df.loc[self.prop_df.orientation_line < 0 - th_or, 'prediction'] = 0
+        self.prop_df.loc[self.prop_df.orientation_line > 0 + th_or, 'prediction'] = 0
         # Add a new column to store the prediction probabilities.
         self.prop_df['prob'] = None
         # Use the model to calculate the prediction probabilities for each row in the properties dataframe and store them in the 'prob' column.
@@ -254,6 +254,12 @@ class Img:
         for val1, val2 in self.prop_df[self.prop_df.prediction == 1].idx.str.split('&').apply(
                 lambda x: [int(i) for i in x]):
             self.masks[self.masks == val2] = val1
+
+    def update_pairs_value(self):
+        self.build_all_props_df()
+        self.calc_dapi_ribo()
+        self.props_data.to_csv(f'{self.temp_files_path}/props_df/{self.name}_df_single.csv')
+
 
     def extract_single_cell_images(self, output_size=100, corner_distance=100, zero_background=True, dilution= 3, save_dir = None):
         if not save_dir:
