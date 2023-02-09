@@ -29,6 +29,7 @@ from reduce_high_signals import reduce
 class Img:
 
     def __init__(self, path, temp_files_path=r'X:\yedidyab\dl_project\temp_files'):
+        self.in_div = None
         self.dev_list = None
         self.path = path
         self.name = os.path.basename(path).split('.')[0]
@@ -251,13 +252,17 @@ class Img:
         This function will iterate over all the elements of the mask and check if any of the elements match with the value2 of tuple.
         If yes, then it will replace that element with the value1 of that tuple.
         """
+        self.in_div = []
         for val1, val2 in self.prop_df[self.prop_df.prediction == 1].idx.str.split('&').apply(
                 lambda x: [int(i) for i in x]):
             self.masks[self.masks == val2] = val1
+            self.in_div.append(val1)
 
     def update_pairs_value(self):
         self.build_all_props_df()
         self.calc_dapi_ribo()
+        self.props_data['in_div'] = False
+        self.props_data.loc[self.props_data.label.isin(self.in_div), 'in_div'] = True
         self.props_data.to_csv(f'{self.temp_files_path}/props_df/{self.name}_df_single.csv')
 
 
