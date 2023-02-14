@@ -1,5 +1,5 @@
 import copy
-
+from skimage.measure import label, regionprops, regionprops_table
 import numpy as np
 import napari
 import matplotlib.pyplot as plt
@@ -24,7 +24,7 @@ from phase_progection import get_phase_projection as gt
 import os
 from alignment import align
 from reduce_high_signals import reduce
-
+from scipy.ndimage.interpolation import rotate
 
 class Img:
 
@@ -266,12 +266,13 @@ class Img:
         self.props_data.to_csv(f'{self.temp_files_path}/props_df/{self.name}_df_single.csv')
 
 
-    def extract_single_cell_images(self, output_size=100, corner_distance=100, zero_background=True, dilution= 3, save_dir = None):
+    def extract_single_cell_images(self, output_size=100, corner_distance=100, zero_background=True, dilution= 3, save_dir = None, to_rotate=True):
         if not save_dir:
             save_dir = f'{self.temp_files_path}/../single_cell_data'
             print(f'saving at: {save_dir}')
         pros = measure.regionprops_table(self.masks, properties=['label',
-                                                                 'bbox'])
+                                                                 'bbox',
+                                                                 'orientation'])
         props_data = pd.DataFrame(pros)
         props_data.index = props_data.label
 
@@ -280,10 +281,11 @@ class Img:
             min_row, min_col, max_row, max_col = cell[1]['bbox-0'], cell[1]['bbox-1'], cell[1]['bbox-2'], cell[1][
                 'bbox-3']
             # Calculate the top-left and bottom-right coordinates of the bounding box
-            top_left = (max(0, min_col - (output_size - (max_col - min_col)) // 2),
-                        max(0, min_row - (output_size - (max_row - min_row)) // 2))
-            bottom_right = (min(self.masks.shape[1], top_left[0] + output_size),
-                            min(self.masks.shape[0], top_left[1] + output_size))
+            top_left = (int(max(0, min_col - (output_size - (max_col - min_col)) // 2)),
+                        int(max(0, min_row - (output_size - (max_row - min_row)) // 2)))
+            bottom_right = (int(min(self.masks.shape[1], top_left[0] + output_size)),
+                            int(min(self.masks.shape[0], top_left[1] + output_size)))
+            # print(top_left, bottom_right)
 
             # filter border cells
             if top_left[0] < corner_distance or top_left[1] < corner_distance or bottom_right[0] > self.masks.shape[
@@ -308,6 +310,9 @@ class Img:
 
             # Combine the image and mask into a single array
             bounding_box = np.array([bounding_box_img, bb_mask, bounding_box_dapi, bounding_box_ribo, bounding_box_wga])
+            if to_rotate:
+                angle = float(-cell[1]['orientation'] * (180 / np.pi))
+                bounding_box = rotate(bounding_box, angle=angle, reshape=False, axes=(1, 2))
             if not os.path.exists(f'{save_dir}/{self.name}'):
                 os.makedirs(f'{save_dir}/{self.name}')
             np.save(file=f'{save_dir}/{self.name}/label_{label}_bb_{min_col}_{max_row}.npy', arr=bounding_box)
