@@ -53,6 +53,33 @@ class GaussianBlur(object):
             )
         )
 
+class AddGaussianNoise(object):
+    def __init__(self, mean=0., std=1.):
+        self.std = std
+        self.mean = mean
+
+    def __call__(self, tensor):
+        do_it = random.random() <= self.prob
+        if not do_it:
+            return img
+
+        return tensor + torch.randn(tensor.size()) * self.std + self.mean
+
+
+
+class RandomPixelsDropOut(object):
+    def __init__(self, n_min=.5, n_max=1):
+        self.n_min = n_min
+        self.n_max = n_max
+
+    def __call__(self, tensor):
+        do_it = random.random() <= self.prob
+        if not do_it:
+            return img
+        random_drop_matrix = torch.bernoulli(torch.empty(tensor.size()).uniform_(self.n_min, self.n_max))
+        return tensor * random_drop_matrix
+
+
 
 class Solarization(object):
     """
