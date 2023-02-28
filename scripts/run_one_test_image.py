@@ -27,6 +27,7 @@ def run_image(path1, path2):
     temp.alighnment()
     temp.predict_division(rf_model=detect_div_model)
     temp.replace_values_in_mask()
+    temp.update_pairs_value()
     temp.reduce_high_signals()
     temp.extract_single_cell_images(output_size=128)
 

@@ -5,3 +5,4 @@ temp_files/
 single_cell_data/
 *.npy
 *.pyc
+*.png
