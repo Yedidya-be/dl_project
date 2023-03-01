@@ -427,28 +427,28 @@ class DataAugmentationDINO(object):
         self.global_transfo1 = transforms.Compose([
             # transforms.RandomResizedCrop(224, scale=global_crops_scale, interpolation=Image.BICUBIC),
             # flip_and_color_jitter,
-            transforms.RandomRotation(180, -180)
-            transforms.CenterCrop(64)
+            transforms.RandomRotation(180, -180),
+            transforms.CenterCrop(64),
             utils.GaussianBlur(1.0),
-            utils.AddGaussianNoise(mean=0., std=1.)
-            utils.RandomPixelsDropOut(.5,1)
+            utils.AddGaussianNoise(mean=0., std=1.),
+            utils.RandomPixelsDropOut(.5,1),
             to_tensor,
         ])
         # second global crop
         self.global_transfo2 = transforms.Compose([
             # transforms.RandomResizedCrop(224, scale=global_crops_scale, interpolation=Image.BICUBIC),
             # flip_and_color_jitter,
-            transforms.RandomRotation(180, -180)
+            transforms.RandomRotation(180, -180),
             utils.GaussianBlur(0.1),
             # utils.Solarization(0.2),
-            to_tensor,
+            to_tensor
         ])
         # transformation for the local small crops
         self.local_crops_number = local_crops_number
         self.local_transfo = transforms.Compose([
             # transforms.RandomResizedCrop(96, scale=local_crops_scale, interpolation=Image.BICUBIC),
             # flip_and_color_jitter,
-            transforms.CenterCrop(32)
+            transforms.CenterCrop(32),
             utils.GaussianBlur(p=0.5),
             to_tensor,
         ])
@@ -462,9 +462,6 @@ class DataAugmentationDINO(object):
         return crops
 
 
-translate
-to
-pytorch
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('DINO', parents=[get_args_parser()])
     args = parser.parse_args()
