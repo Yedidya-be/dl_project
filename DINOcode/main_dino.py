@@ -300,8 +300,8 @@ def train_one_epoch(student, teacher, teacher_without_ddp, dino_loss, data_loade
         images = [im.cuda(non_blocking=True) for im in images]
         # teacher and student forward passes + compute dino loss
         with torch.cuda.amp.autocast(fp16_scaler is not None):
-            teacher_output = teacher(images[:2])  # only the 2 global views pass through the teacher
-            student_output = student(images)
+            teacher_output = teacher(torch.stack(images[:2]))  # only the 2 global views pass through the teacher
+            student_output = student(torch.stack(images))
             loss = dino_loss(student_output, teacher_output, epoch)
 
         if not math.isfinite(loss.item()):
@@ -412,7 +412,7 @@ class DataAugmentationDINO(object):
         # first global crop
         self.global_transfo1 = transforms.Compose([
             to_tensor_rotation_norm,
-            transforms.CenterCrop(32)
+            utils.CenterCropProb(32, p=1.)
         ])
 
         # second global crop

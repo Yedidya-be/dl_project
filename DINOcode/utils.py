@@ -122,7 +122,10 @@ class CenterCropProb(object):
         if not do_it:
             return tensor
 
-        return transforms.CenterCrop(self.size)(tensor)
+        out = transforms.CenterCrop(self.size)(tensor)
+        out = transforms.Resize(size=(128, 128))(out)
+
+        return out
 
 class Normalization(object):
     def __init__(self, max_pixel=70000):
