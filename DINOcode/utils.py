@@ -35,6 +35,7 @@ from PIL import ImageFilter, ImageOps
 import os
 import numpy as np
 from torch.utils.data import Dataset
+from torchvision import transforms
 
 
 class BactDataBase(Dataset):
@@ -43,14 +44,14 @@ class BactDataBase(Dataset):
         for file_name in os.listdir(directory_path):
             if file_name.endswith('.npy'):
                 file_path = os.path.join(directory_path, file_name)
-                self.npy_files.append(np.load(file_path))
+                self.npy_files.append(file_path)
         self.transform = transform
 
     def __len__(self):
         return len(self.npy_files)
 
     def __getitem__(self, idx):
-        data = self.npy_files[idx]
+        data = np.load(self.npy_files[idx])
 
         if self.transform:
             data = self.transform(data)
@@ -62,7 +63,6 @@ class GaussianBlur(object):
     """
     Apply Gaussian Blur to the PIL image.
     """
-
     def __init__(self, p=0.5, radius_min=0.1, radius_max=2.):
         self.prob = p
         self.radius_min = radius_min
@@ -81,44 +81,58 @@ class GaussianBlur(object):
 
 
 class AddGaussianNoise(object):
-    def __init__(self, mean=0., std=1.):
-        self.std = std
-        self.mean = mean
+    def __init__(self, prob=1.):
+        self.prob = prob
 
     def __call__(self, tensor):
         do_it = random.random() <= self.prob
         if not do_it:
-            return img
+            return tensor
 
-        return tensor + torch.randn(tensor.size()) * self.std + self.mean
+        img = tensor + torch.randn(tensor.size())
+        return torch.clamp(img, min=0, max=1)
 
 
 class RandomPixelsDropOut(object):
-    def __init__(self, n_min=.5, n_max=1):
+    '''
+    we can change it to use torch.randlike instead.
+    '''
+    def __init__(self, n_min=.5, n_max=1, p = 0.5):
         self.n_min = n_min
         self.n_max = n_max
+        self.prob = p
 
     def __call__(self, tensor):
         do_it = random.random() <= self.prob
         if not do_it:
-            return img
+            return tensor
         random_drop_matrix = torch.bernoulli(torch.empty(tensor.size()).uniform_(self.n_min, self.n_max))
         return tensor * random_drop_matrix
 
+class CenterCropProb(object):
+    '''
+    we can change it to use torch.randlike instead.
+    '''
+    def __init__(self, size=16, p = 0.5):
+        self.prob = p
+        self.size = size
 
-class Solarization(object):
-    """
-    Apply Solarization to the PIL image.
-    """
+    def __call__(self, tensor):
+        do_it = random.random() <= self.prob
+        if not do_it:
+            return tensor
 
-    def __init__(self, p):
-        self.p = p
+        return transforms.CenterCrop(self.size)(tensor)
 
-    def __call__(self, img):
-        if random.random() < self.p:
-            return ImageOps.solarize(img)
-        else:
-            return img
+class Normalization(object):
+    def __init__(self, max_pixel=70000):
+        self.max_pixel = max_pixel
+
+    def __call__(self, tensor):
+        return tensor / self.max_pixel
+
+
+
 
 
 def load_pretrained_weights(model, pretrained_weights, checkpoint_key, model_name, patch_size):
@@ -247,6 +261,7 @@ def cosine_scheduler(base_value, final_value, epochs, niter_per_ep, warmup_epoch
     schedule = final_value + 0.5 * (base_value - final_value) * (1 + np.cos(np.pi * iters / len(iters)))
 
     schedule = np.concatenate((warmup_schedule, schedule))
+    print(len(schedule), epochs, niter_per_ep)
     assert len(schedule) == epochs * niter_per_ep
     return schedule
 
@@ -539,8 +554,11 @@ def init_distributed_mode(args):
         print('Does not support training without GPU.')
         sys.exit(1)
 
+    backend = "nccl" if sys.platform == 'linux' else "gloo"
+    print(f'run on {sys.platform}, {backend=}')
+
     dist.init_process_group(
-        backend="nccl",
+        backend=backend,
         init_method=args.dist_url,
         world_size=args.world_size,
         rank=args.rank,

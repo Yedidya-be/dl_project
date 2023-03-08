@@ -13,13 +13,14 @@
 # limitations under the License.
 import argparse
 import os
+os.environ["PL_TORCH_DISTRIBUTED_BACKEND"] = "gloo"
 import sys
 import datetime
 import time
 import math
 import json
 from pathlib import Path
-
+import pdb
 import numpy as np
 from PIL import Image
 import torch
@@ -29,6 +30,7 @@ import torch.backends.cudnn as cudnn
 import torch.nn.functional as F
 from torchvision import datasets, transforms
 from torchvision import models as torchvision_models
+from conv_model import Encoder
 
 import utils
 import vision_transformer as vits
@@ -142,6 +144,7 @@ def train_dino(args):
         args.local_crops_scale,
         args.local_crops_number,
     )
+    # dataset = utils.BactDataBase(args.data_path, transform=transform)
     dataset = utils.BactDataBase(args.data_path, transform=transform)
     sampler = torch.utils.data.DistributedSampler(dataset, shuffle=True)
     data_loader = torch.utils.data.DataLoader(
@@ -152,32 +155,13 @@ def train_dino(args):
         pin_memory=True,
         drop_last=True,
     )
+
     print(f"Data loaded: there are {len(dataset)} images.")
 
     # ============ building student and teacher networks ... ============
-    # we changed the name DeiT-S for ViT-S to avoid confusions
-    args.arch = args.arch.replace("deit", "vit")
-    # if the network is a Vision Transformer (i.e. vit_tiny, vit_small, vit_base)
-    if args.arch in vits.__dict__.keys():
-        student = vits.__dict__[args.arch](
-            patch_size=args.patch_size,
-            drop_path_rate=args.drop_path_rate,  # stochastic depth
-        )
-        teacher = vits.__dict__[args.arch](patch_size=args.patch_size)
-        embed_dim = student.embed_dim
-    # if the network is a XCiT
-    elif args.arch in torch.hub.list("facebookresearch/xcit:main"):
-        student = torch.hub.load('facebookresearch/xcit:main', args.arch,
-                                 pretrained=False, drop_path_rate=args.drop_path_rate)
-        teacher = torch.hub.load('facebookresearch/xcit:main', args.arch, pretrained=False)
-        embed_dim = student.embed_dim
-    # otherwise, we check if the architecture is in torchvision models
-    elif args.arch in torchvision_models.__dict__.keys():
-        student = torchvision_models.__dict__[args.arch]()
-        teacher = torchvision_models.__dict__[args.arch]()
-        embed_dim = student.fc.weight.shape[1]
-    else:
-        print(f"Unknow architecture: {args.arch}")
+    # load models
+    student, teacher = Encoder(), Encoder()
+    embed_dim = args.out_dim
 
     # multi-crop wrapper handles forward with inputs of different resolutions
     student = utils.MultiCropWrapper(student, DINOHead(
@@ -186,6 +170,7 @@ def train_dino(args):
         use_bn=args.use_bn_in_head,
         norm_last_layer=args.norm_last_layer,
     ))
+
     teacher = utils.MultiCropWrapper(
         teacher,
         DINOHead(embed_dim, args.out_dim, args.use_bn_in_head),
@@ -209,7 +194,7 @@ def train_dino(args):
     # there is no backpropagation through the teacher, so no need for gradients
     for p in teacher.parameters():
         p.requires_grad = False
-    print(f"Student and Teacher are built: they are both {args.arch} network.")
+    print(f"Student and Teacher are built: they are both conv network.")
 
     # ============ preparing loss ... ============
     dino_loss = DINOLoss(
@@ -303,7 +288,7 @@ def train_one_epoch(student, teacher, teacher_without_ddp, dino_loss, data_loade
                     fp16_scaler, args):
     metric_logger = utils.MetricLogger(delimiter="  ")
     header = 'Epoch: [{}/{}]'.format(epoch, args.epochs)
-    for it, (images, _) in enumerate(metric_logger.log_every(data_loader, 10, header)):
+    for it, images in enumerate(metric_logger.log_every(data_loader, 5, header)):
         # update weight decay and learning rate according to their schedule
         it = len(data_loader) * epoch + it  # global training iteration
         for i, param_group in enumerate(optimizer.param_groups):
@@ -418,39 +403,32 @@ class DINOLoss(nn.Module):
 
 class DataAugmentationDINO(object):
     def __init__(self, global_crops_scale, local_crops_scale, local_crops_number):
-        to_tensor = transforms.Compose([
+        to_tensor_rotation_norm = transforms.Compose([
             transforms.ToTensor(),
-            # transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
+            transforms.RandomRotation(degrees=(-180, 180), expand=False),
+            utils.Normalization()
         ])
 
         # first global crop
         self.global_transfo1 = transforms.Compose([
-            # transforms.RandomResizedCrop(224, scale=global_crops_scale, interpolation=Image.BICUBIC),
-            # flip_and_color_jitter,
-            transforms.RandomRotation(180, -180),
-            transforms.CenterCrop(64),
-            utils.GaussianBlur(1.0),
-            utils.AddGaussianNoise(mean=0., std=1.),
-            utils.RandomPixelsDropOut(.5,1),
-            to_tensor,
+            to_tensor_rotation_norm,
+            transforms.CenterCrop(32)
         ])
+
         # second global crop
         self.global_transfo2 = transforms.Compose([
-            # transforms.RandomResizedCrop(224, scale=global_crops_scale, interpolation=Image.BICUBIC),
-            # flip_and_color_jitter,
-            transforms.RandomRotation(180, -180),
-            utils.GaussianBlur(0.1),
-            # utils.Solarization(0.2),
-            to_tensor
+            to_tensor_rotation_norm,
+            utils.RandomPixelsDropOut(p=1.)
         ])
+
         # transformation for the local small crops
         self.local_crops_number = local_crops_number
         self.local_transfo = transforms.Compose([
-            # transforms.RandomResizedCrop(96, scale=local_crops_scale, interpolation=Image.BICUBIC),
-            # flip_and_color_jitter,
-            transforms.CenterCrop(32),
-            utils.GaussianBlur(p=0.5),
-            to_tensor,
+            to_tensor_rotation_norm,
+            utils.CenterCropProb(16, p=0.5),
+            transforms.GaussianBlur(kernel_size=3, sigma = (2., 40.)),
+            utils.RandomPixelsDropOut(p=0.5),
+            utils.AddGaussianNoise(prob=0.5)
         ])
 
     def __call__(self, image):
@@ -465,5 +443,6 @@ class DataAugmentationDINO(object):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('DINO', parents=[get_args_parser()])
     args = parser.parse_args()
+    print(args)
     Path(args.output_dir).mkdir(parents=True, exist_ok=True)
     train_dino(args)
