@@ -4,10 +4,10 @@ import os
 import pandas as pd
 import sys
 
-path = r'/home/labs/danielda/yedidyab/dl_project/test_data/raw_data/*nd2'
+path = r'/home/labs/danielda/dl4cv_project/dl_project/test_data/raw_data/*nd2'
 # path = sys.argv[1]
 
-single_cell_path = r'/home/labs/danielda/yedidyab/dl_project/single_cell_data_test/'
+single_cell_path = r'/home/labs/danielda/dl4cv_project/dl_project/single_cell_data_test/'
 if not os.path.exists(single_cell_path):
     os.makedirs(single_cell_path)
 
