@@ -7,3 +7,9 @@ single_cell_data/
 *.pyc
 *.png
 *.png
+garbage/
+results/
+single_cell_data_test/
+test_data/
+tests/
+
