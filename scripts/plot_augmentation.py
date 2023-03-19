@@ -31,6 +31,7 @@ def plot_pairs(rotation_path, shifted_path, out_path, channel=0):
     axs[1, 0].set_ylabel('shift')
     axs[2, 0].set_ylabel('out')
     plt.tight_layout()
-    plt.show()
+    plt.savefig(r'C:\Users\yedidyab\Box\Yedidya_Ben_Eliyahu\dl_proj\dl_project\notebooks\MEVAE\rot_shift_out.png')
+    #plt.show()
 
 plot_pairs(r'X:\dl4cv_project\data_for_einav2\all_channels\shifted\train',r'X:\dl4cv_project\data_for_einav2\all_channels\rotation\train',r'X:\dl4cv_project\data_for_einav2\all_channels\OutputImages\train', channel=0)

@@ -6,9 +6,6 @@ import os
 
 def plot_recon(input1, input2, out, recon, channel=0):
     color = 'Blues' if channel == 2 else 'Reds' if channel == 3 else 'Greens' if channel == 4 else 'gray'
-
-
-
     input1_data = np.load(input1)[..., channel]
     input2_data = np.load(input2)[..., channel]
     out_data = np.load(out)[..., channel]
@@ -39,12 +36,11 @@ def plot_recon(input1, input2, out, recon, channel=0):
     axs[2, 0].set_ylabel('out')
     axs[3, 0].set_ylabel('recon')
     plt.tight_layout()
-    plt.savefig(r"X:\dl4cv_project\try_out\plot.png")
+    plt.savefig(r"X:\dl4cv_project\try_out\VAE_good_recon.png")
     plt.show()
 
-main_file = r'X:\dl4cv_project\rotate_single_cell\Outputs_32'
-# main_file = r'X:\dl4cv_project\data_for_einav2\all_channels\Outputs_l32'
-input1 = main_file + r'\input2_data.npy'
+main_file = r'X:\yedidyab\dl_project\results\vae\Outputs_l32_old_vae'
+input1 = main_file + r'\input1_data.npy'
 input2 = main_file + r'\input2_data.npy'
 out = main_file + r'\out1_data.npy'
 recon = main_file + r'\recon.npy'

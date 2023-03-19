@@ -36,7 +36,18 @@ import os
 import numpy as np
 from torch.utils.data import Dataset
 from torchvision import transforms
+import re
 
+def extract_fov_label(string):
+    fov_match = re.search(r"fov_(\d+)", string)
+    label_match = re.search(r"label_(\d+)", string)
+
+    if fov_match and label_match:
+        fov = fov_match.group(1)
+        label = label_match.group(1)
+        return {'fov': int(fov), 'label': int(label)}
+    else:
+        return np.nan
 
 class BactDataBase(Dataset):
     def __init__(self, directory_path, transform=None):
@@ -52,11 +63,14 @@ class BactDataBase(Dataset):
 
     def __getitem__(self, idx):
         data = np.load(self.npy_files[idx])
+        data = np.moveaxis(data, 0, -1)
+        data = data[..., :3]
 
         if self.transform:
             data = self.transform(data)
 
-        return data
+        label = extract_fov_label(self.npy_files[idx])
+        return data, label
 
 
 class GaussianBlur(object):
@@ -123,7 +137,7 @@ class CenterCropProb(object):
             return tensor
 
         out = transforms.CenterCrop(self.size)(tensor)
-        out = transforms.Resize(size=(128, 128))(out)
+        #out = transforms.Resize(size=(128, 128))(out)
 
         return out
 
